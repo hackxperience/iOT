@@ -5,11 +5,36 @@ import time
 import datetime
 import RPi.GPIO as GPIO
 
+GPIO.setmode(GPIO.BCM)
+
+TRIG = 4
+ECHO = 18
+GPIO.setup(TRIG, GPIO.OUT)
+GPIO.setup(ECHO, GPIO.IN)
+
+GPIO.output(TRIG, True)
+time.sleep(0.0001)
+GPIO.output(TRIG, False)
+
+while GPIO.input(ECHO) == False:
+    start = time.time()
+while GPIO.input(ECHO) == True:
+    end = time.time()
+
+sig_time = end-start
+
+#centimeters:
+distance = sig_time / 0.000058
+
+print('Distance:{}cm'.format(distance))
+
+GPIO.cleanup()
+
 cap = cv2.VideoCapture(1)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 body_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_fullbody.xml")
-detection = True
+detection = False
 detection_stopped_time = None
 timer_started = False
 RECORD_AFTER_DETECTION = 5
@@ -32,6 +57,19 @@ while True:
             timer_started = False
         else:
             detection = True
+            current_time = datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S")
+            out = cv2.VideoWriter(f"{current_time}.mp4", fourcc, 20.0, frame_size)
+            print("Started Recording")
+    elif detection:
+        if timer_started:
+            if time.time() - detection_stopped_time >= RECORD_AFTER_DETECTION:
+                detection = False
+                timer_started = False
+                out.release()
+                print("Stop Recording")
+        else:
+            timer_started = True
+            detection_stopped_time = time.time()
     out.write(frame)
     
     for (x, y, width, height) in faces:
